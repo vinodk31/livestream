@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { StreamRow } from "@/components/streams/stream-row";
 import { cn } from "@/lib/utils";
 import { requireUser } from "@/server/auth/session";
+import { sweepHostStale } from "@/server/streams/broadcast";
 import { listStreams, type StreamStatusFilter } from "@/server/streams/queries";
 
 export const metadata: Metadata = { title: "My Streams" };
@@ -32,6 +33,7 @@ export default async function StreamsPage({ searchParams }: PageProps<"/streams"
   const query = (one(params.q) ?? "").slice(0, 100);
   const page = Number.parseInt(one(params.page) ?? "1", 10) || 1;
 
+  await sweepHostStale(user.id, { ip: null, userAgent: null });
   const now = new Date();
   const result = await listStreams(user.id, { status, query, page });
   const filtered = status !== "all" || query !== "";
