@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# InstantLive
 
-## Getting Started
+Go live from the browser, share a link, and viewers watch instantly: no account, no app, no sign-up.
 
-First, run the development server:
+**Status:** Phase 1 in progress. Done: project setup, database schema, authentication.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack
+
+| Concern | Choice |
+|---|---|
+| App + API | Next.js 16 (App Router, Server Actions, Route Handlers), TypeScript |
+| UI | Tailwind CSS v4, shadcn/ui-style components (`src/components/ui`) |
+| Database | PostgreSQL (Neon on Vercel) with Drizzle ORM + SQL migrations in `drizzle/` |
+| Auth | Email + password (argon2id), 15-min JWT access token + rotating 30-day refresh token in `__Host-` httpOnly cookies |
+| Rate limiting | Upstash Redis (falls back to in-memory locally) |
+| Email | Resend (prints to the console locally) |
+| Streaming | LiveKit Cloud (coming in module 5) |
+| Tests | Vitest; integration tests run against real Postgres in-process via PGlite |
+
+## Project layout
+
+```
+src/
+  app/
+    (auth)/          login, register, forgot/reset password + server actions
+    (app)/           signed-in area (dashboard, streams, settings…)
+    verify-email/    email verification link handler
+    api/auth/        refresh endpoint for long-lived client tabs
+  components/        UI components (ui/ = shadcn-style primitives)
+  lib/               shared client/server code (validation, utils)
+  server/            server-only code
+    auth/            jwt, cookies, password hashing, session DAL, auth service
+    db/              Drizzle schema + client
+    email/           Resend sender + templates
+    audit.ts         audit log writer
+    rate-limit.ts    all rate limits in one place
+  proxy.ts           session refresh + optimistic route guard (Next 16's "middleware")
+drizzle/             generated SQL migrations (committed)
+tests/               unit + integration tests
+scripts/             migrate + make-admin
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Requirements: Node 22+, and Postgres 16 (Docker is easiest).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+cp .env.example .env.local      # then set AUTH_SECRET: openssl rand -base64 48
+docker compose up -d            # local Postgres on :5432
+npm run db:migrate
+npm run dev                     # http://localhost:3000
+```
 
-## Learn More
+Without `RESEND_API_KEY`, emails (verification, password reset) are printed in the terminal running `npm run dev`, so you can click the links.
 
-To learn more about Next.js, take a look at the following resources:
+Make yourself an admin after signing up:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run db:make-admin -- you@example.com
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Scripts
 
-## Deploy on Vercel
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server |
+| `npm test` | Unit + integration tests (no external DB needed) |
+| `npm run lint` / `npm run typecheck` | Static checks |
+| `npm run db:generate` | Create a migration after editing `src/server/db/schema.ts` |
+| `npm run db:migrate` | Apply migrations |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploying to Vercel
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Import** the GitHub repo in Vercel (framework: Next.js, defaults are fine). Vercel runs `vercel-build`, which applies database migrations and then builds.
+2. **Storage tab → add:**
+   - **Neon Postgres**: sets `DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
+   - **Upstash Redis**: sets `KV_REST_API_URL` and `KV_REST_API_TOKEN` (shared rate limits across instances).
+3. **Settings → Environment Variables:**
+
+   | Name | Value |
+   |---|---|
+   | `AUTH_SECRET` | output of `openssl rand -base64 48` |
+   | `APP_URL` | your production URL, e.g. `https://instantlive.vercel.app` |
+   | `RESEND_API_KEY` | from resend.com → API Keys |
+   | `EMAIL_FROM` | e.g. `InstantLive <no-reply@yourdomain.com>` (domain verified in Resend) |
+   | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | from LiveKit Cloud → Settings → Keys (needed from module 5) |
+
+4. **Redeploy.** The first deploy fails until Postgres is connected; that's expected.
+
+> Until you verify a sending domain in Resend, Resend only delivers to your own account email.
+
+## Security notes
+
+- Passwords: argon2id (OWASP parameters); unknown emails take the same time as wrong passwords.
+- Sessions: short-lived JWT + opaque refresh tokens stored only as SHA-256 hashes; rotation on every use, with reuse detection that revokes the whole login. Password reset/change signs out other sessions.
+- Email tokens: single-use, hashed, 24h (verify) / 1h (reset); requesting a new one invalidates the old.
+- No account enumeration on forgot-password; login errors are generic.
+- Rate limits on login (per IP and per account), sign-up, reset, resend and refresh.
+- Audit log of auth events (`audit_logs`), security headers, open-redirect protection, CSRF covered by SameSite cookies + Server Action origin checks + an Origin check on the refresh route.
