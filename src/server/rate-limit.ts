@@ -18,6 +18,8 @@ export const RATE_LIMITS = {
   verifyCode: { limit: 10, window: "15 m" },
   resendVerification: { limit: 3, window: "1 h" },
   refresh: { limit: 120, window: "1 m" },
+  changePassword: { limit: 10, window: "15 m" },
+  deleteAccount: { limit: 5, window: "1 h" },
 } satisfies Record<string, Rule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

@@ -2,7 +2,7 @@
 
 Go live from the browser, share a link, and viewers watch instantly: no account, no app, no sign-up.
 
-**Status:** Phase 1 in progress. Done: project setup, database schema, authentication.
+**Status:** Phase 1 in progress. Done: project setup, database schema, authentication, host dashboard (dashboard, My Streams, settings).
 
 ## Stack
 

@@ -10,7 +10,8 @@ const FEATURES = [
   { icon: ShieldCheck, title: "Private when you need it", body: "Public, unlisted, or passcode-protected streams. No ads, ever." },
 ];
 
-export default function Home() {
+export default async function Home({ searchParams }: PageProps<"/">) {
+  const { deleted } = await searchParams;
   return (
     <div className="flex min-h-svh flex-col">
       <header className="mx-auto flex h-16 w-full max-w-6xl items-center px-4">
@@ -25,6 +26,11 @@ export default function Home() {
         </nav>
       </header>
       <main className="flex-1">
+        {deleted === "1" && (
+          <p role="status" className="mx-auto mt-4 max-w-3xl rounded-lg border bg-muted px-4 py-3 text-center text-sm">
+            Your account and all its data have been deleted.
+          </p>
+        )}
         <section className="mx-auto max-w-3xl px-4 py-20 text-center sm:py-28">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground">
             <span className="size-1.5 rounded-full bg-live" aria-hidden /> Live streaming without the friction

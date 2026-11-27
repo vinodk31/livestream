@@ -45,4 +45,28 @@ export const resetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+export const profileSchema = z.object({
+  name: z.string().trim().min(1, "Enter your name").max(100, "Name is too long"),
+});
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password").max(128),
+    password: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
+  .refine((d) => d.password !== d.currentPassword, {
+    message: "Choose a password you haven't used here",
+    path: ["password"],
+  });
+
+export const deleteAccountSchema = z.object({
+  confirmEmail: emailSchema,
+  password: z.string().min(1, "Enter your password").max(128),
+});
+
 export type FieldErrors = Partial<Record<string, string[]>>;

@@ -11,7 +11,10 @@ export type AuditAction =
   | "auth.email_verified"
   | "auth.password_reset_requested"
   | "auth.password_reset"
-  | "auth.password_changed";
+  | "auth.password_changed"
+  | "account.profile_updated"
+  | "account.sessions_revoked"
+  | "account.deleted";
 
 export async function audit(entry: {
   action: AuditAction;
