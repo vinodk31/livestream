@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
   // Native module: keep it out of the server bundle.
   serverExternalPackages: ["@node-rs/argon2"],
   poweredByHeader: false,
+  experimental: {
+    // Thumbnails are capped at 2 MB; leave headroom for multipart overhead.
+    serverActions: { bodySizeLimit: "3mb" },
+  },
   turbopack: {
     rules: {
       "*.css": {

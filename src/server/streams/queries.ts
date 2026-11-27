@@ -161,3 +161,24 @@ export async function listStreams(
 function escapeLike(s: string): string {
   return s.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
+
+export type StreamStats = { views: number; broadcasts: number; peakViewers: number; watchSeconds: number };
+
+/** Lifetime stats for one stream. Callers must have already checked ownership. */
+export async function getStreamStats(streamId: string): Promise<StreamStats> {
+  const [row] = await getDb()
+    .select({
+      views: sum(streamSessions.totalJoins).mapWith(Number),
+      broadcasts: count(),
+      peak: max(streamSessions.peakViewers),
+      watch: sum(streamSessions.viewerSeconds).mapWith(Number),
+    })
+    .from(streamSessions)
+    .where(eq(streamSessions.streamId, streamId));
+  return {
+    views: row?.views ?? 0,
+    broadcasts: row?.broadcasts ?? 0,
+    peakViewers: row?.peak ?? 0,
+    watchSeconds: row?.watch ?? 0,
+  };
+}

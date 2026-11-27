@@ -14,7 +14,13 @@ export type AuditAction =
   | "auth.password_changed"
   | "account.profile_updated"
   | "account.sessions_revoked"
-  | "account.deleted";
+  | "account.deleted"
+  | "stream.created"
+  | "stream.updated"
+  | "stream.deleted"
+  | "stream.link_reset"
+  | "stream.thumbnail_set"
+  | "stream.thumbnail_removed";
 
 export async function audit(entry: {
   action: AuditAction;

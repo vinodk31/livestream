@@ -20,6 +20,8 @@ export const RATE_LIMITS = {
   refresh: { limit: 120, window: "1 m" },
   changePassword: { limit: 10, window: "15 m" },
   deleteAccount: { limit: 5, window: "1 h" },
+  streamWrite: { limit: 60, window: "10 m" },
+  upload: { limit: 20, window: "10 m" },
 } satisfies Record<string, Rule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

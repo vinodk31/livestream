@@ -2,7 +2,7 @@
 
 Go live from the browser, share a link, and viewers watch instantly: no account, no app, no sign-up.
 
-**Status:** Phase 1 in progress. Done: project setup, database schema, authentication, host dashboard (dashboard, My Streams, settings).
+**Status:** Phase 1 in progress. Done: project setup, database schema, authentication, host dashboard (dashboard, My Streams, settings), stream creation (privacy, passcodes, thumbnails, share link, QR codes).
 
 ## Stack
 
@@ -13,6 +13,8 @@ Go live from the browser, share a link, and viewers watch instantly: no account,
 | Database | PostgreSQL (Neon on Vercel) with Drizzle ORM + SQL migrations in `drizzle/` |
 | Auth | Email + password (argon2id), 15-min JWT access token + rotating 30-day refresh token in `__Host-` httpOnly cookies |
 | Rate limiting | Upstash Redis (falls back to in-memory locally) |
+| File storage | Vercel Blob for thumbnails (saved to `.uploads/` locally) |
+| QR codes | `qrcode`, rendered server-side as SVG/PNG |
 | Email | Resend (prints to the console locally) |
 | Streaming | LiveKit Cloud (coming in module 5) |
 | Tests | Vitest; integration tests run against real Postgres in-process via PGlite |
@@ -76,6 +78,7 @@ npm run db:make-admin -- you@example.com
 2. **Storage tab → add:**
    - **Neon Postgres**: sets `DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
    - **Upstash Redis**: sets `KV_REST_API_URL` and `KV_REST_API_TOKEN` (shared rate limits across instances).
+   - **Blob**: sets `BLOB_READ_WRITE_TOKEN` (stream thumbnails; without it, uploads are refused in production).
 3. **Settings → Environment Variables:**
 
    | Name | Value |

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Plus, Radio, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleCheck, Plus, Radio, Search } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,12 @@ export default async function StreamsPage({ searchParams }: PageProps<"/streams"
 
   return (
     <div className="grid gap-6">
+      {one(params.deleted) === "1" && (
+        <Alert variant="success">
+          <CircleCheck />
+          <AlertDescription>Stream deleted.</AlertDescription>
+        </Alert>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">My Streams</h1>
