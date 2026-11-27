@@ -21,7 +21,9 @@ export type AuditAction =
   | "stream.deleted"
   | "stream.link_reset"
   | "stream.thumbnail_set"
-  | "stream.thumbnail_removed";
+  | "stream.thumbnail_removed"
+  | "stream.live"
+  | "stream.ended";
 
 export async function audit(entry: {
   action: AuditAction;

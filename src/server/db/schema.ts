@@ -166,6 +166,10 @@ export const streamSessions = pgTable(
     livekitRoom: varchar("livekit_room", { length: 128 }).notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    /** Updated by the host studio every few seconds; a stale value means the host left. */
+    lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
+    /** How the host is broadcasting this session. */
+    source: varchar("source", { length: 8 }).notNull().default("browser"),
     peakViewers: integer("peak_viewers").notNull().default(0),
     totalJoins: integer("total_joins").notNull().default(0),
     /** Sum of viewer-seconds, for average watch time and plan usage. */
@@ -178,7 +182,8 @@ export const streamSessions = pgTable(
   },
   (t) => [
     index("stream_sessions_stream_idx").on(t.streamId, t.startedAt),
-    uniqueIndex("stream_sessions_room_idx").on(t.livekitRoom),
+    // One LiveKit room per stream (stable so OBS ingress can target it); many sessions share it.
+    index("stream_sessions_room_idx").on(t.livekitRoom),
   ],
 );
 

@@ -66,8 +66,10 @@ export default async function StreamDetailsPage({ params, searchParams }: PagePr
             </span>
           </div>
         </div>
-        <Button variant="live" disabled title="Going live arrives in the next update">
-          <Radio aria-hidden /> Go live
+        <Button variant="live" asChild>
+          <Link href={`/studio/${stream.id}`}>
+            <Radio aria-hidden /> {stream.status === "live" ? "Open studio" : "Go live"}
+          </Link>
         </Button>
       </div>
 

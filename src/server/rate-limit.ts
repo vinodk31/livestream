@@ -22,6 +22,11 @@ export const RATE_LIMITS = {
   deleteAccount: { limit: 5, window: "1 h" },
   streamWrite: { limit: 60, window: "10 m" },
   upload: { limit: 20, window: "10 m" },
+  broadcastControl: { limit: 30, window: "10 m" },
+  heartbeat: { limit: 30, window: "1 m" },
+  passcode: { limit: 10, window: "10 m" },
+  viewerJoin: { limit: 30, window: "10 m" },
+  viewerPoll: { limit: 60, window: "1 m" },
 } satisfies Record<string, Rule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

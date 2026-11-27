@@ -8,6 +8,7 @@ import { streams, users, type Stream } from "../db/schema";
 import { audit } from "../audit";
 import { hashPassword } from "../auth/password";
 import type { RequestMeta } from "../request";
+import { getLiveKit, isLiveKitConfigured } from "../livekit";
 import { deleteStored, storeImage } from "../storage";
 
 // No 0/o, 1/l/i: slugs are sometimes read aloud or typed from a screen.
@@ -158,6 +159,9 @@ export async function deleteStream(streamId: string, hostId: string, meta: Reque
   if (current.status === "live") throw new StreamError("is_live");
   await getDb().delete(streams).where(and(eq(streams.id, streamId), eq(streams.hostId, hostId)));
   await deleteStored(current.thumbnailUrl);
+  if (current.ingressId && isLiveKitConfigured()) {
+    await getLiveKit().deleteIngress(current.ingressId).catch((err) => console.warn("[deleteStream] ingress", err));
+  }
   await audit({
     action: "stream.deleted",
     actorId: hostId,

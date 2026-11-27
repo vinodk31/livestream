@@ -15,6 +15,13 @@
       "when": 1795753268583,
       "tag": "0001_email_code_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795795637330,
+      "tag": "0002_live_sessions",
+      "breakpoints": true
     }
   ]
 }

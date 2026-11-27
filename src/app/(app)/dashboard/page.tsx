@@ -10,12 +10,14 @@ import { formatCount, formatDuration } from "@/lib/format";
 import { PLANS } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import { requireUser } from "@/server/auth/session";
+import { sweepHostStale } from "@/server/streams/broadcast";
 import { getDashboardStats, listStreams } from "@/server/streams/queries";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const [user, params] = await Promise.all([requireUser("/dashboard"), searchParams]);
+  await sweepHostStale(user.id, { ip: null, userAgent: null });
   const now = new Date();
   const [stats, recent] = await Promise.all([
     getDashboardStats(user.id, now),

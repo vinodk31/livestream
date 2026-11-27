@@ -2,7 +2,7 @@
 
 Go live from the browser, share a link, and viewers watch instantly: no account, no app, no sign-up.
 
-**Status:** Phase 1 in progress. Done: project setup, database schema, authentication, host dashboard (dashboard, My Streams, settings), stream creation (privacy, passcodes, thumbnails, share link, QR codes).
+**Status:** Phase 1 in progress. Done: project setup, database schema, authentication, host dashboard (dashboard, My Streams, settings), stream creation (privacy, passcodes, thumbnails, share link, QR codes), live streaming (browser studio, OBS/RTMP, viewer player, chat).
 
 ## Stack
 
@@ -16,7 +16,7 @@ Go live from the browser, share a link, and viewers watch instantly: no account,
 | File storage | Vercel Blob for thumbnails (saved to `.uploads/` locally) |
 | QR codes | `qrcode`, rendered server-side as SVG/PNG |
 | Email | Resend (prints to the console locally) |
-| Streaming | LiveKit Cloud (coming in module 5) |
+| Streaming | LiveKit Cloud: WebRTC with simulcast + adaptive quality; RTMP ingress for OBS |
 | Tests | Vitest; integration tests run against real Postgres in-process via PGlite |
 
 ## Project layout
@@ -92,6 +92,15 @@ npm run db:make-admin -- you@example.com
 4. **Redeploy.** The first deploy fails until Postgres is connected; that's expected.
 
 > Until you verify a sending domain in Resend, Resend only delivers to your own account email.
+
+## Live streaming
+
+- **Host:** Stream details → **Go live** opens `/studio/[id]`: camera/mic preview, device pickers, mute, camera on/off, flip (phones), screen share (desktop), live timer and viewer count, chat. Or choose **OBS / encoder** to get an RTMP server URL and stream key.
+- **Viewers:** `/watch/[slug]` waits until the host is live, then plays automatically (muted, with "Tap for sound"), adapts quality to the connection, and shows chat. Private streams ask for the passcode first; a correct passcode is remembered in an httpOnly cookie that stops working if the host changes the passcode.
+- **Reliability:** the studio sends a heartbeat every 15s. If it stops for 60s (tab closed, laptop asleep) the broadcast is ended automatically, so nothing is stuck "live". Reloading the studio while live resumes the same broadcast.
+- **Plan limits:** going live checks the month's streaming hours (and ends the broadcast if they run out mid-stream); viewers beyond the plan's limit see "This stream is full" (also enforced by LiveKit's room size).
+- **No LiveKit webhooks needed.** Viewer counts come from LiveKit's API on each heartbeat; watch time comes from viewer pings every 30s.
+- Requires `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. OBS needs RTMP ingress enabled on the LiveKit project.
 
 ## Security notes
 
