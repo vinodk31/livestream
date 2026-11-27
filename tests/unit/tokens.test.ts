@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateToken, sha256 } from "@/server/auth/tokens";
+import { generateCode, generateToken, hashCode, safeEqual, sha256 } from "@/server/auth/tokens";
 import { signAccessToken, verifyAccessToken } from "@/server/auth/jwt";
 import { SignJWT } from "jose";
 
@@ -14,6 +14,21 @@ describe("tokens", () => {
   it("hashes deterministically to 64 hex chars", () => {
     expect(sha256("abc")).toBe(sha256("abc"));
     expect(sha256("abc")).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("one-time codes", () => {
+  it("are always 6 digits, including leading zeros", () => {
+    for (let i = 0; i < 2000; i++) expect(generateCode()).toMatch(/^\d{6}$/);
+  });
+
+  it("hash differently per user and purpose", () => {
+    const h = hashCode("verify_email", "u1", "123456");
+    expect(h).toBe(hashCode("verify_email", "u1", "123456"));
+    expect(h).not.toBe(hashCode("verify_email", "u2", "123456"));
+    expect(h).not.toBe(hashCode("reset_password", "u1", "123456"));
+    expect(safeEqual(h, hashCode("verify_email", "u1", "123456"))).toBe(true);
+    expect(safeEqual(h, "short")).toBe(false);
   });
 });
 

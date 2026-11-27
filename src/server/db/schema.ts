@@ -96,7 +96,7 @@ export const refreshTokens = pgTable(
   ],
 );
 
-/** Single-use tokens for email verification and password reset (hash only). */
+/** Single-use 6-digit codes for email verification and password reset (keyed hash only). */
 export const emailTokens = pgTable(
   "email_tokens",
   {
@@ -108,6 +108,8 @@ export const emailTokens = pgTable(
     tokenHash: varchar("token_hash", { length: 64 }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
+    /** Wrong guesses so far; the code is rejected once this hits the limit. */
+    attempts: integer("attempts").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

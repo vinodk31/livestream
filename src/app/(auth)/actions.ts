@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -8,6 +9,7 @@ import {
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
   type FieldErrors,
 } from "@/lib/validation/auth";
 import { safeRedirectPath } from "@/lib/utils";
@@ -115,7 +117,7 @@ export async function forgotPasswordAction(_prev: FormState, formData: FormData)
   ]);
   if (!ipLimit.success) return { status: "error", message: TOO_MANY, values };
 
-  // Silently skip when the per-account limit is hit so responses stay identical.
+  // Silently skip when the per-account limit is hit so the response never reveals anything.
   if (accountLimit.success) {
     try {
       await auth.requestPasswordReset(parsed.data.email, meta);
@@ -123,35 +125,68 @@ export async function forgotPasswordAction(_prev: FormState, formData: FormData)
       console.error("[forgot-password]", err);
     }
   }
-  return {
-    status: "success",
-    message: "If an account exists for that email, we've sent a link to reset your password.",
-  };
+  // Same destination whether or not the account exists.
+  redirect(`/reset-password?email=${encodeURIComponent(parsed.data.email)}`);
 }
 
 export async function resetPasswordAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const values = { email: str(formData, "email") };
   const parsed = resetPasswordSchema.safeParse({
-    token: str(formData, "token"),
+    email: values.email,
+    code: str(formData, "code"),
     password: str(formData, "password"),
     confirmPassword: str(formData, "confirmPassword"),
   });
-  if (!parsed.success) return { status: "error", fieldErrors: fieldErrors(parsed.error) };
+  if (!parsed.success) return { status: "error", fieldErrors: fieldErrors(parsed.error), values };
 
   const meta = await getRequestMeta();
-  if (!(await rateLimit("resetPassword", meta.ip ?? "unknown")).success) {
-    return { status: "error", message: TOO_MANY };
-  }
+  const [ipLimit, accountLimit] = await Promise.all([
+    rateLimit("resetPassword", meta.ip ?? "unknown"),
+    rateLimit("resetPasswordAccount", parsed.data.email),
+  ]);
+  if (!ipLimit.success || !accountLimit.success) return { status: "error", message: TOO_MANY, values };
+
   try {
-    await auth.resetPassword(parsed.data.token, parsed.data.password, meta);
+    await auth.resetPassword(parsed.data, meta);
   } catch (err) {
     if (err instanceof auth.AuthError) {
-      return { status: "error", message: "This reset link is invalid or has expired. Request a new one." };
+      return { status: "error", fieldErrors: { code: [codeErrorMessage(err)] }, values };
     }
     console.error("[reset-password]", err);
-    return { status: "error", message: "Something went wrong. Please try again." };
+    return { status: "error", message: "Something went wrong. Please try again.", values };
   }
   clearAuthCookies(await cookies());
   redirect("/login?reset=1");
+}
+
+function codeErrorMessage(err: auth.AuthError): string {
+  if (err.attemptsLeft && err.attemptsLeft > 0) {
+    return `That code isn't right. ${err.attemptsLeft} ${err.attemptsLeft === 1 ? "try" : "tries"} left.`;
+  }
+  return "This code has expired or been used up. Request a new one.";
+}
+
+export async function verifyEmailAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await getCurrentUser();
+  if (!user) return { status: "error", message: "Please sign in again." };
+  if (user.emailVerified) redirect("/dashboard?verified=1");
+
+  const parsed = verifyEmailSchema.safeParse({ code: str(formData, "code") });
+  if (!parsed.success) return { status: "error", fieldErrors: fieldErrors(parsed.error) };
+  if (!(await rateLimit("verifyCode", user.id)).success) return { status: "error", message: TOO_MANY };
+
+  try {
+    await auth.verifyEmail(user.id, parsed.data.code, await getRequestMeta());
+  } catch (err) {
+    if (err instanceof auth.AuthError) {
+      return { status: "error", fieldErrors: { code: [codeErrorMessage(err)] } };
+    }
+    console.error("[verify-email]", err);
+    return { status: "error", message: "Something went wrong. Please try again." };
+  }
+  // The signed-in layout renders the banner, so make sure it re-renders with the new status.
+  revalidatePath("/", "layout");
+  redirect("/dashboard?verified=1");
 }
 
 export async function resendVerificationAction(): Promise<FormState> {
@@ -167,5 +202,5 @@ export async function resendVerificationAction(): Promise<FormState> {
     console.error("[resend-verification]", err);
     return { status: "error", message: "Couldn't send the email. Please try again." };
   }
-  return { status: "success", message: `Verification email sent to ${user.email}.` };
+  return { status: "success", message: `New code sent to ${user.email}.` };
 }

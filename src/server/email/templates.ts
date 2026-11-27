@@ -19,32 +19,31 @@ ${bodyHtml}
 </td></tr></table></body></html>`;
 }
 
-function button(href: string, label: string): string {
-  return `<p style="margin:24px 0"><a href="${escapeHtml(href)}" style="background:#171717;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;display:inline-block;font-weight:600">${escapeHtml(label)}</a></p>
-<p style="font-size:13px;color:#525252">Or paste this link into your browser:<br><span style="word-break:break-all">${escapeHtml(href)}</span></p>`;
+function codeBlock(code: string): string {
+  return `<p style="margin:24px 0;font-size:32px;font-weight:700;letter-spacing:8px;font-family:ui-monospace,Menlo,Consolas,monospace">${escapeHtml(code)}</p>`;
 }
 
-export function verifyEmailMessage(to: string, name: string, link: string): EmailMessage {
+export function verifyEmailMessage(to: string, name: string, code: string): EmailMessage {
   return {
     to,
-    subject: "Verify your email for InstantLive",
+    subject: `${code} is your InstantLive verification code`,
     html: layout(
       "Confirm your email",
-      `<p>Hi ${escapeHtml(name)}, confirm your email address to start going live.</p>${button(link, "Verify email")}<p style="font-size:13px;color:#525252">This link expires in 24 hours.</p>`,
+      `<p>Hi ${escapeHtml(name)}, enter this code in InstantLive to confirm your email:</p>${codeBlock(code)}<p style="font-size:13px;color:#525252">The code expires in 15 minutes. If you didn't sign up, you can ignore this email.</p>`,
     ),
-    text: `Hi ${name},\n\nConfirm your email to start going live:\n${link}\n\nThis link expires in 24 hours.`,
+    text: `Hi ${name},\n\nYour InstantLive verification code is: ${code}\n\nIt expires in 15 minutes. If you didn't sign up, ignore this email.`,
   };
 }
 
-export function resetPasswordMessage(to: string, name: string, link: string): EmailMessage {
+export function resetPasswordMessage(to: string, name: string, code: string): EmailMessage {
   return {
     to,
-    subject: "Reset your InstantLive password",
+    subject: `${code} is your InstantLive password reset code`,
     html: layout(
       "Reset your password",
-      `<p>Hi ${escapeHtml(name)}, we received a request to reset your password.</p>${button(link, "Choose a new password")}<p style="font-size:13px;color:#525252">This link expires in 1 hour. If you didn't ask for this, you can ignore this email.</p>`,
+      `<p>Hi ${escapeHtml(name)}, enter this code in InstantLive to choose a new password:</p>${codeBlock(code)}<p style="font-size:13px;color:#525252">The code expires in 15 minutes. If you didn't ask for this, you can ignore this email: your password won't change.</p>`,
     ),
-    text: `Hi ${name},\n\nReset your password here:\n${link}\n\nThis link expires in 1 hour. If you didn't ask for this, ignore this email.`,
+    text: `Hi ${name},\n\nYour InstantLive password reset code is: ${code}\n\nIt expires in 15 minutes. If you didn't ask for this, ignore this email.`,
   };
 }
 

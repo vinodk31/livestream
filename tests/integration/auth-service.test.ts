@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { auditLogs, refreshTokens, users } from "@/server/db/schema";
+import { auditLogs, emailTokens, refreshTokens, users } from "@/server/db/schema";
 import { sentEmails } from "@/server/email";
 import * as auth from "@/server/auth/service";
 import { verifyAccessToken } from "@/server/auth/jwt";
@@ -23,12 +23,16 @@ beforeEach(async () => {
   sentEmails.length = 0;
 });
 
-function tokenFromLastEmail(path: string): string {
+function codeFromLastEmail(): string {
   const email = sentEmails.at(-1);
   expect(email).toBeDefined();
-  const match = email!.text.match(new RegExp(`${path}\\?token=([A-Za-z0-9_%-]+)`));
+  const match = email!.text.match(/code is: (\d{6})/);
   expect(match).not.toBeNull();
-  return decodeURIComponent(match![1]!);
+  return match![1]!;
+}
+
+function wrongCode(code: string): string {
+  return code === "000000" ? "111111" : "000000";
 }
 
 async function registerAlice() {
@@ -53,7 +57,7 @@ describe("registration", () => {
 
     expect(sentEmails).toHaveLength(1);
     expect(sentEmails[0]!.to).toBe("alice@example.com");
-    expect(sentEmails[0]!.subject).toMatch(/verify/i);
+    expect(sentEmails[0]!.subject).toMatch(/verification code/i);
   });
 
   it("rejects a duplicate email regardless of case", async () => {
@@ -162,27 +166,64 @@ describe("refresh token rotation", () => {
 });
 
 describe("email verification", () => {
-  it("verifies with the emailed link exactly once", async () => {
+  it("emails a 6-digit code that verifies the account exactly once", async () => {
     const { user } = await registerAlice();
-    const token = tokenFromLastEmail("/verify-email");
-    await auth.verifyEmail(token, meta);
+    expect(sentEmails[0]!.subject).toMatch(/^\d{6} is your InstantLive verification code$/);
+    const code = codeFromLastEmail();
+    await auth.verifyEmail(user.id, code, meta);
     const [row] = await t.db.select().from(users).where(eq(users.id, user.id));
     expect(row!.emailVerifiedAt).toBeInstanceOf(Date);
-    await expect(auth.verifyEmail(token, meta)).rejects.toMatchObject({ code: "invalid_token" });
+    await expect(auth.verifyEmail(user.id, code, meta)).rejects.toMatchObject({ code: "invalid_code" });
   });
 
-  it("invalidates the previous link when a new one is requested", async () => {
+  it("stores only a keyed hash of the code", async () => {
     const { user } = await registerAlice();
-    const oldToken = tokenFromLastEmail("/verify-email");
+    const code = codeFromLastEmail();
+    const [row] = await t.db.select().from(emailTokens).where(eq(emailTokens.userId, user.id));
+    expect(row!.tokenHash).not.toContain(code);
+    expect(row!.tokenHash).not.toBe(sha256(code));
+  });
+
+  it("counts wrong guesses and burns the code after 5", async () => {
+    const { user } = await registerAlice();
+    const code = codeFromLastEmail();
+    for (let left = auth.MAX_CODE_ATTEMPTS - 1; left >= 0; left--) {
+      await expect(auth.verifyEmail(user.id, wrongCode(code), meta)).rejects.toMatchObject({
+        code: "invalid_code",
+        attemptsLeft: left,
+      });
+    }
+    // Even the right code no longer works.
+    await expect(auth.verifyEmail(user.id, code, meta)).rejects.toMatchObject({ code: "invalid_code" });
+    // A new code resets the counter.
     await auth.resendVerification(user.id);
-    const newToken = tokenFromLastEmail("/verify-email");
-    await expect(auth.verifyEmail(oldToken, meta)).rejects.toMatchObject({ code: "invalid_token" });
-    await auth.verifyEmail(newToken, meta);
+    await auth.verifyEmail(user.id, codeFromLastEmail(), meta);
+  });
+
+  it("rejects expired codes and codes belonging to someone else", async () => {
+    const { user } = await registerAlice();
+    const aliceCode = codeFromLastEmail();
+    const bob = await auth.register({ name: "Bob", email: "bob@example.com", password: PASSWORD }, meta);
+    await expect(auth.verifyEmail(bob.user.id, aliceCode, meta)).rejects.toMatchObject({ code: "invalid_code" });
+
+    await t.db.update(emailTokens).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(emailTokens.userId, user.id));
+    await expect(auth.verifyEmail(user.id, aliceCode, meta)).rejects.toMatchObject({ code: "invalid_code" });
+  });
+
+  it("invalidates the previous code when a new one is requested", async () => {
+    const { user } = await registerAlice();
+    const oldCode = codeFromLastEmail();
+    await auth.resendVerification(user.id);
+    const newCode = codeFromLastEmail();
+    if (oldCode !== newCode) {
+      await expect(auth.verifyEmail(user.id, oldCode, meta)).rejects.toMatchObject({ code: "invalid_code" });
+    }
+    await auth.verifyEmail(user.id, newCode, meta);
   });
 
   it("refuses to resend once verified", async () => {
     const { user } = await registerAlice();
-    await auth.verifyEmail(tokenFromLastEmail("/verify-email"), meta);
+    await auth.verifyEmail(user.id, codeFromLastEmail(), meta);
     await expect(auth.resendVerification(user.id)).rejects.toMatchObject({ code: "already_verified" });
   });
 });
@@ -191,14 +232,18 @@ describe("password reset", () => {
   it("does nothing visible for unknown emails", async () => {
     await auth.requestPasswordReset("ghost@example.com", meta);
     expect(sentEmails).toHaveLength(0);
+    await expect(
+      auth.resetPassword({ email: "ghost@example.com", code: "123456", password: "brand-new-pass-2" }, meta),
+    ).rejects.toMatchObject({ code: "invalid_code" });
   });
 
-  it("resets the password, signs out all sessions and the link is single-use", async () => {
+  it("resets the password with the code, signs out all sessions and the code is single-use", async () => {
     const { tokens } = await registerAlice();
-    await auth.requestPasswordReset("alice@example.com", meta);
-    const token = tokenFromLastEmail("/reset-password");
+    await auth.requestPasswordReset("ALICE@example.com", meta);
+    const code = codeFromLastEmail();
+    expect(sentEmails.at(-1)!.subject).toMatch(/password reset code/);
 
-    await auth.resetPassword(token, "brand-new-pass-2", meta);
+    await auth.resetPassword({ email: "alice@example.com", code, password: "brand-new-pass-2" }, meta);
 
     expect((await auth.refreshSession(tokens.refreshToken!, meta)).ok).toBe(false);
     await expect(auth.login({ email: "alice@example.com", password: PASSWORD }, meta)).rejects.toMatchObject({
@@ -208,7 +253,34 @@ describe("password reset", () => {
     expect(user.emailVerifiedAt).not.toBeNull();
     expect(sentEmails.at(-1)!.subject).toMatch(/password was changed/i);
 
-    await expect(auth.resetPassword(token, "another-pass-3", meta)).rejects.toMatchObject({ code: "invalid_token" });
+    await expect(
+      auth.resetPassword({ email: "alice@example.com", code, password: "another-pass-3" }, meta),
+    ).rejects.toMatchObject({ code: "invalid_code" });
+  });
+
+  it("does not accept a verification code as a reset code", async () => {
+    await registerAlice();
+    const verifyCode = codeFromLastEmail();
+    await auth.requestPasswordReset("alice@example.com", meta);
+    const resetCode = codeFromLastEmail();
+    if (verifyCode === resetCode) return; // 1-in-a-million coincidence
+    await expect(
+      auth.resetPassword({ email: "alice@example.com", code: verifyCode, password: "brand-new-pass-2" }, meta),
+    ).rejects.toMatchObject({ code: "invalid_code" });
+  });
+
+  it("locks the reset code after 5 wrong guesses", async () => {
+    await registerAlice();
+    await auth.requestPasswordReset("alice@example.com", meta);
+    const code = codeFromLastEmail();
+    for (let i = 0; i < auth.MAX_CODE_ATTEMPTS; i++) {
+      await expect(
+        auth.resetPassword({ email: "alice@example.com", code: wrongCode(code), password: "brand-new-pass-2" }, meta),
+      ).rejects.toMatchObject({ code: "invalid_code" });
+    }
+    await expect(
+      auth.resetPassword({ email: "alice@example.com", code, password: "brand-new-pass-2" }, meta),
+    ).rejects.toMatchObject({ code: "invalid_code" });
   });
 
   it("change password keeps only the current device signed in", async () => {

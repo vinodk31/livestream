@@ -24,13 +24,6 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             <AlertDescription>Your password was changed. Sign in with your new password.</AlertDescription>
           </Alert>
         )}
-        {params.verify === "invalid" && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              That verification link is invalid or has expired. Sign in to request a new one.
-            </AlertDescription>
-          </Alert>
-        )}
         <LoginForm next={next} />
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">

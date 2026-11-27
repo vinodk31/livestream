@@ -26,9 +26,17 @@ export const loginSchema = z.object({
 
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 
+export const codeSchema = z
+  .string()
+  .transform((v) => v.replace(/\s/g, ""))
+  .pipe(z.string().regex(/^\d{6}$/, "Enter the 6-digit code from the email"));
+
+export const verifyEmailSchema = z.object({ code: codeSchema });
+
 export const resetPasswordSchema = z
   .object({
-    token: z.string().min(20).max(200),
+    email: emailSchema,
+    code: codeSchema,
     password: passwordSchema,
     confirmPassword: z.string(),
   })

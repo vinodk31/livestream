@@ -8,6 +8,13 @@
       "when": 1795750583051,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795753268583,
+      "tag": "0001_email_code_attempts",
+      "breakpoints": true
     }
   ]
 }

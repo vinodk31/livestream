@@ -52,6 +52,16 @@ export function Field({
   );
 }
 
+/** Props for a 6-digit one-time-code input (phones show a number pad and can autofill from SMS/email). */
+export const codeInputProps = {
+  inputMode: "numeric",
+  autoComplete: "one-time-code",
+  pattern: "[0-9 ]*",
+  maxLength: 7,
+  placeholder: "123456",
+  className: "font-mono text-lg tracking-[0.4em] placeholder:tracking-[0.4em]",
+} as const;
+
 export function FormMessage({ state }: { state: FormState }) {
   if (!state.message) return null;
   const success = state.status === "success";

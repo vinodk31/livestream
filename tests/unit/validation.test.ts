@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loginSchema, registerSchema, resetPasswordSchema } from "@/lib/validation/auth";
+import { loginSchema, registerSchema, resetPasswordSchema, verifyEmailSchema } from "@/lib/validation/auth";
 import { safeRedirectPath } from "@/lib/utils";
 
 describe("auth validation", () => {
@@ -21,9 +21,24 @@ describe("auth validation", () => {
   });
 
   it("requires matching passwords on reset", () => {
-    const token = "x".repeat(43);
-    const r = resetPasswordSchema.safeParse({ token, password: "goodpassword1", confirmPassword: "other" });
+    const r = resetPasswordSchema.safeParse({
+      email: "a@b.co",
+      code: "123456",
+      password: "goodpassword1",
+      confirmPassword: "other",
+    });
     expect(r.success).toBe(false);
+  });
+});
+
+describe("one-time codes", () => {
+  it("accepts 6 digits, tolerating spaces", () => {
+    expect(verifyEmailSchema.parse({ code: "123 456" }).code).toBe("123456");
+    expect(verifyEmailSchema.parse({ code: "000042" }).code).toBe("000042");
+  });
+
+  it.each(["12345", "1234567", "12a456", ""])("rejects %j", (code) => {
+    expect(verifyEmailSchema.safeParse({ code }).success).toBe(false);
   });
 });
 

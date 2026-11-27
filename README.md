@@ -52,7 +52,7 @@ npm run db:migrate
 npm run dev                     # http://localhost:3000
 ```
 
-Without `RESEND_API_KEY`, emails (verification, password reset) are printed in the terminal running `npm run dev`, so you can click the links.
+Without `RESEND_API_KEY`, emails (verification and password-reset codes) are printed in the terminal running `npm run dev`, so you can copy the 6-digit code.
 
 Make yourself an admin after signing up:
 
@@ -94,7 +94,7 @@ npm run db:make-admin -- you@example.com
 
 - Passwords: argon2id (OWASP parameters); unknown emails take the same time as wrong passwords.
 - Sessions: short-lived JWT + opaque refresh tokens stored only as SHA-256 hashes; rotation on every use, with reuse detection that revokes the whole login. Password reset/change signs out other sessions.
-- Email tokens: single-use, hashed, 24h (verify) / 1h (reset); requesting a new one invalidates the old.
+- Email verification and password reset use 6-digit codes: single-use, valid 15 minutes, burned after 5 wrong guesses, stored only as an HMAC keyed with `AUTH_SECRET` and bound to the user and purpose; requesting a new code invalidates the old one.
 - No account enumeration on forgot-password; login errors are generic.
 - Rate limits on login (per IP and per account), sign-up, reset, resend and refresh.
 - Audit log of auth events (`audit_logs`), security headers, open-redirect protection, CSRF covered by SameSite cookies + Server Action origin checks + an Origin check on the refresh route.

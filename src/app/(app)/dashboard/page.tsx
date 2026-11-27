@@ -17,13 +17,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <AlertDescription>Your email is verified. You&apos;re ready to go live.</AlertDescription>
         </Alert>
       )}
-      {params.verify === "invalid" && !user.emailVerified && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            That verification link is invalid or has expired. Use &ldquo;Resend email&rdquo; above to get a new one.
-          </AlertDescription>
-        </Alert>
-      )}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
           {params.welcome === "1" ? "Welcome" : "Welcome back"}, {user.name.split(" ")[0]}

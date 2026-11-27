@@ -14,6 +14,8 @@ export const RATE_LIMITS = {
   forgotIp: { limit: 5, window: "1 h" },
   forgotAccount: { limit: 3, window: "1 h" },
   resetPassword: { limit: 10, window: "1 h" },
+  resetPasswordAccount: { limit: 10, window: "1 h" },
+  verifyCode: { limit: 10, window: "15 m" },
   resendVerification: { limit: 3, window: "1 h" },
   refresh: { limit: 120, window: "1 m" },
 } satisfies Record<string, Rule>;
