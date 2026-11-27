@@ -33,6 +33,14 @@ function fieldErrors(error: z.ZodError): FieldErrors {
   return z.flattenError(error).fieldErrors as FieldErrors;
 }
 
+/** Config problems are the site owner's to fix; say so plainly instead of "something went wrong". */
+function configProblem(err: unknown): string | null {
+  const msg = err instanceof Error ? err.message : "";
+  if (msg.includes("AUTH_SECRET")) return "Sign-in isn't configured on this server yet (AUTH_SECRET). If you run this site, see /api/health.";
+  if (msg.includes("DATABASE_URL")) return "The database isn't connected yet. If you run this site, see /api/health.";
+  return null;
+}
+
 function str(formData: FormData, key: string): string {
   const v = formData.get(key);
   return typeof v === "string" ? v : "";
@@ -60,7 +68,7 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
       };
     }
     console.error("[register]", err);
-    return { status: "error", message: "Something went wrong. Please try again.", values };
+    return { status: "error", message: configProblem(err) ?? "Something went wrong. Please try again.", values };
   }
   redirect("/dashboard?welcome=1");
 }
@@ -90,7 +98,7 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
       return { status: "error", message, values };
     }
     console.error("[login]", err);
-    return { status: "error", message: "Something went wrong. Please try again.", values };
+    return { status: "error", message: configProblem(err) ?? "Something went wrong. Please try again.", values };
   }
   redirect(next);
 }
