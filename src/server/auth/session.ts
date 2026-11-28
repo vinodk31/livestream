@@ -45,7 +45,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
 export async function requireUser(returnTo?: string): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect(returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login");
+  if (!user) {
+    const next = returnTo ? `next=${encodeURIComponent(returnTo)}` : "";
+    // A valid token for a disabled/deleted account must be cleared first, or /login would
+    // bounce straight back here (the proxy only checks the token, not the database).
+    if (await getSession()) redirect(`/api/auth/signed-out${next ? `?${next}` : ""}`);
+    redirect(next ? `/login?${next}` : "/login");
+  }
   return user;
 }
 

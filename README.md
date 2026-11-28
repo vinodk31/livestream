@@ -2,7 +2,7 @@
 
 Go live from the browser, share a link, and viewers watch instantly: no account, no app, no sign-up.
 
-**Status:** Phase 1 in progress. Done: project setup, database schema, authentication, host dashboard (dashboard, My Streams, settings), stream creation (privacy, passcodes, thumbnails, share link, QR codes), live streaming (browser studio, OBS/RTMP, viewer player, chat).
+**Status:** Phase 1 in progress. Done: project setup, database schema, authentication, host dashboard (dashboard, My Streams, settings), stream creation (privacy, passcodes, thumbnails, share link, QR codes), live streaming (browser studio, OBS/RTMP, viewer player, chat), recording & replay, admin.
 
 ## Stack
 
@@ -101,6 +101,40 @@ npm run db:make-admin -- you@example.com
 - **Plan limits:** going live checks the month's streaming hours (and ends the broadcast if they run out mid-stream); viewers beyond the plan's limit see "This stream is full" (also enforced by LiveKit's room size).
 - **No LiveKit webhooks needed.** Viewer counts come from LiveKit's API on each heartbeat; watch time comes from viewer pings every 30s.
 - Requires `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. OBS needs RTMP ingress enabled on the LiveKit project.
+
+## Recording & replays
+
+Every broadcast of a stream with **Record the stream** on is recorded by LiveKit Egress straight to your own S3-compatible bucket. After the broadcast ends, the viewer link shows the latest replay, and the host can watch, download or delete recordings on the stream page. Recordings are deleted after the plan's retention (7 days on Free) by a daily cron job.
+
+**Set up Cloudflare R2 (recommended: no charge for people watching replays):**
+1. Cloudflare dashboard → **R2** → **Create bucket** (e.g. `instantlive-recordings`). Keep it private.
+2. R2 → **Manage API tokens** → **Create API token** with *Object Read & Write* on that bucket. Copy the Access Key ID and Secret.
+3. In Vercel → Environment Variables:
+
+   | Name | Value |
+   |---|---|
+   | `RECORDING_S3_BUCKET` | `instantlive-recordings` |
+   | `RECORDING_S3_ACCESS_KEY_ID` | from step 2 |
+   | `RECORDING_S3_SECRET_ACCESS_KEY` | from step 2 |
+   | `RECORDING_S3_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com` |
+   | `RECORDING_S3_REGION` | `auto` |
+   | `CRON_SECRET` | any long random string (enables the daily cleanup) |
+
+4. Optional, for instant "replay ready": LiveKit → Settings → **Webhooks** → add `https://<your-site>/api/livekit/webhook`. Without it, the app checks the recording status whenever the stream page or viewer link is opened.
+
+AWS S3 works too: leave `RECORDING_S3_ENDPOINT` empty and set `RECORDING_S3_REGION` (e.g. `us-east-1`).
+
+## Admin
+
+`/admin` (admins only; others get a 404): platform overview, users (search, mark verified, disable/enable, delete), streams (search, live/reported/disabled filters, disable/enable), the report queue (viewers use **Report this stream** on the watch page), and the audit log.
+
+Make someone an admin in the Neon SQL editor:
+
+```sql
+UPDATE users SET role = 'admin' WHERE lower(email) = 'you@example.com';
+```
+
+Disabling a user signs them out everywhere and ends their live broadcasts; disabling a stream ends its broadcast and makes the viewer link show "not found" (the host sees the reason).
 
 ## Security notes
 
