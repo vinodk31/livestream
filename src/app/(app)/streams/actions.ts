@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/server/auth/session";
 import { rateLimit } from "@/server/rate-limit";
 import { getRequestMeta } from "@/server/request";
 import { MAX_IMAGE_BYTES, StorageError } from "@/server/storage";
+import { deleteRecording } from "@/server/streams/recording-service";
 import {
   StreamError,
   createStream,
@@ -167,4 +168,17 @@ export async function deleteStreamAction(streamId: string): Promise<FormState> {
   revalidatePath("/streams");
   revalidatePath("/dashboard");
   redirect("/streams?deleted=1");
+}
+
+export async function deleteRecordingAction(streamId: string, sessionId: string): Promise<FormState> {
+  const user = await getCurrentUser();
+  if (!user) return SIGNED_OUT;
+  try {
+    await deleteRecording(sessionId, user.id, await getRequestMeta());
+  } catch (err) {
+    console.error("[recording.delete]", err);
+    return { status: "error", message: "Couldn't delete the recording. Please try again." };
+  }
+  revalidatePath(`/streams/${streamId}`);
+  return { status: "success", message: "Recording deleted." };
 }

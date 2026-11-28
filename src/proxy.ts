@@ -75,6 +75,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Skip static assets, images and the public watch/API endpoints that never need a host session.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|watch|api/public|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|txt|xml)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|watch|api/public|api/livekit|api/cron|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|txt|xml)$).*)",
   ],
 };

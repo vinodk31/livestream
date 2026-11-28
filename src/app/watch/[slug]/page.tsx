@@ -3,9 +3,11 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { PasscodeGate } from "@/components/live/passcode-gate";
+import { ReportButton } from "@/components/live/report-button";
 import { PlayerLoader } from "@/components/live/loaders";
 import { accessCookieName, hasViewerAccess, getViewerStream } from "@/server/streams/broadcast";
 import { getPublicStream } from "@/server/streams/public";
+import { getLatestReplay } from "@/server/streams/recording-service";
 
 export async function generateMetadata({ params }: PageProps<"/watch/[slug]">): Promise<Metadata> {
   const stream = await getPublicStream((await params).slug);
@@ -25,6 +27,7 @@ export default async function WatchPage({ params }: PageProps<"/watch/[slug]">) 
   if (!stream || !access) notFound();
   const jar = await cookies();
   const unlocked = hasViewerAccess(access, jar.get(accessCookieName(access.id))?.value);
+  const replay = unlocked && stream.status === "ended" ? await getLatestReplay(stream.id).catch(() => null) : null;
 
   return (
     <div className="flex min-h-svh flex-col bg-neutral-950 text-white">
@@ -41,10 +44,14 @@ export default async function WatchPage({ params }: PageProps<"/watch/[slug]">) 
               hostName={stream.hostName}
               thumbnailUrl={stream.thumbnailUrl}
               chatEnabled={stream.chatEnabled}
+              replay={replay ? { url: replay.url, recordedAt: replay.recordedAt.toISOString() } : null}
             />
             {stream.description && (
               <p className="mt-4 max-w-3xl text-sm whitespace-pre-line text-white/80">{stream.description}</p>
             )}
+            <div className="mt-6">
+              <ReportButton slug={slug} />
+            </div>
           </>
         ) : (
           <div className="mx-auto max-w-4xl">

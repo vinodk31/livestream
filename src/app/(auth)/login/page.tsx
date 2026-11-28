@@ -24,6 +24,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             <AlertDescription>Your password was changed. Sign in with your new password.</AlertDescription>
           </Alert>
         )}
+        {params.reason === "signed_out" && (
+          <Alert>
+            <AlertDescription>You&apos;ve been signed out. If your account was disabled, contact support.</AlertDescription>
+          </Alert>
+        )}
         <LoginForm next={next} />
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">

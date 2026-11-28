@@ -22,6 +22,13 @@
       "when": 1795795637330,
       "tag": "0002_live_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795835793144,
+      "tag": "0003_recordings",
+      "breakpoints": true
     }
   ]
 }

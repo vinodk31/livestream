@@ -27,6 +27,7 @@ export const RATE_LIMITS = {
   passcode: { limit: 10, window: "10 m" },
   viewerJoin: { limit: 30, window: "10 m" },
   viewerPoll: { limit: 60, window: "1 m" },
+  report: { limit: 5, window: "1 h" },
 } satisfies Record<string, Rule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
