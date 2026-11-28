@@ -17,6 +17,8 @@ export type PlayerProps = {
   hostName: string;
   thumbnailUrl: string | null;
   chatEnabled: boolean;
+  /** Latest recording, shown when the stream has ended. */
+  replay?: { url: string; recordedAt: string } | null;
 };
 
 const NAME_KEY = "il_viewer_name";
@@ -33,7 +35,7 @@ function viewerName(): string {
   }
 }
 
-export function Player({ slug, initialStatus, title, hostName, thumbnailUrl, chatEnabled }: PlayerProps) {
+export function Player({ slug, initialStatus, title, hostName, thumbnailUrl, chatEnabled, replay }: PlayerProps) {
   const [status, setStatus] = useState<Status>(initialStatus);
   const [phase, setPhase] = useState<Phase>(initialStatus === "ended" ? "ended" : "waiting");
   const [room, setRoom] = useState<Room | null>(null);
@@ -260,6 +262,34 @@ export function Player({ slug, initialStatus, title, hostName, thumbnailUrl, cha
   }
 
   const watching = phase === "watching" || phase === "reconnecting";
+  const showReplay = !!replay && !watching && phase !== "joining" && (phase === "ended" || status === "ended");
+
+  if (showReplay) {
+    return (
+      <div className="grid gap-4">
+        <div className="relative overflow-hidden rounded-xl bg-black">
+          <video
+            src={replay.url}
+            controls
+            playsInline
+            preload="metadata"
+            poster={thumbnailUrl ?? undefined}
+            className="aspect-video w-full bg-black"
+          />
+          <span className="pointer-events-none absolute top-3 left-3 rounded bg-black/70 px-2 py-1 text-xs font-semibold text-white">
+            REPLAY
+          </span>
+        </div>
+        <div className="grid gap-1">
+          <h1 className="text-xl font-semibold break-words">{title}</h1>
+          <p className="text-sm text-white/60">
+            {hostName} · Streamed {new Date(replay.recordedAt).toLocaleDateString(undefined, { dateStyle: "medium" })}
+          </p>
+          <p className="text-xs text-white/50">This page switches to the live stream automatically if the host goes live again.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("grid gap-4", chatEnabled && "lg:grid-cols-[1fr_340px]")}>

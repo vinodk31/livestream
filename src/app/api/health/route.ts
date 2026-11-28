@@ -37,6 +37,11 @@ export async function GET() {
       process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET
         ? "ok"
         : "missing LIVEKIT_* (needed from module 5)",
+    recording:
+      process.env.RECORDING_S3_BUCKET && process.env.RECORDING_S3_ACCESS_KEY_ID && process.env.RECORDING_S3_SECRET_ACCESS_KEY
+        ? "ok"
+        : "missing RECORDING_S3_* (replays disabled)",
+    cron: process.env.CRON_SECRET ? "ok" : "missing CRON_SECRET (daily cleanup won't run)",
     testLoginLink: process.env.TEST_LOGIN_KEY
       ? (process.env.TEST_LOGIN_KEY.length >= 24 && process.env.TEST_LOGIN_EMAIL ? "enabled" : "misconfigured (key 24+ chars and TEST_LOGIN_EMAIL required)")
       : "off",

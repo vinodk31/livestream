@@ -1,5 +1,23 @@
 import "server-only";
-import { AccessToken, IngressClient, IngressInput, RoomServiceClient, type VideoGrant } from "livekit-server-sdk";
+import {
+  AccessToken,
+  EgressClient,
+  EgressStatus,
+  EncodedFileOutput,
+  EncodedFileType,
+  IngressClient,
+  IngressInput,
+  RoomServiceClient,
+  S3Upload,
+  type EgressInfo,
+  type VideoGrant,
+} from "livekit-server-sdk";
+import type { RecordingStorage } from "./recordings";
+
+export type EgressResult =
+  | { status: "active" }
+  | { status: "complete"; durationSec: number; sizeBytes: number }
+  | { status: "failed"; error: string };
 
 /**
  * Everything the app needs from LiveKit, behind one small interface so tests can swap in a fake
@@ -25,6 +43,30 @@ export interface LiveKitGateway {
     streamKey: string;
   }>;
   deleteIngress(ingressId: string): Promise<void>;
+  /** Records the whole room (speaker layout, audio + video) to an MP4 in the bucket. */
+  startRecording(room: string, key: string, storage: RecordingStorage): Promise<string>;
+  stopEgress(egressId: string): Promise<void>;
+  getEgress(egressId: string): Promise<EgressResult>;
+}
+
+/** Maps LiveKit's EgressInfo (from polling or a webhook) to our simpler result. */
+export function egressInfoToResult(info: EgressInfo): EgressResult {
+  if (info.status === EgressStatus.EGRESS_COMPLETE) {
+    const file = info.fileResults[0];
+    return {
+      status: "complete",
+      durationSec: file ? Math.round(Number(file.duration) / 1e9) : 0,
+      sizeBytes: file ? Number(file.size) : 0,
+    };
+  }
+  if (
+    info.status === EgressStatus.EGRESS_FAILED ||
+    info.status === EgressStatus.EGRESS_ABORTED ||
+    info.status === EgressStatus.EGRESS_LIMIT_REACHED
+  ) {
+    return { status: "failed", error: info.error || "Recording failed" };
+  }
+  return { status: "active" };
 }
 
 export class LiveKitNotConfigured extends Error {
@@ -41,6 +83,7 @@ function fromEnv(): LiveKitGateway | null {
   const httpUrl = wsUrl.replace(/^ws(s?):\/\//, "http$1://");
   const rooms = new RoomServiceClient(httpUrl, key, secret);
   const ingress = new IngressClient(httpUrl, key, secret);
+  const egress = new EgressClient(httpUrl, key, secret);
 
   return {
     wsUrl,
@@ -85,6 +128,37 @@ function fromEnv(): LiveKitGateway | null {
       } catch (err) {
         if (!String(err).includes("not found")) throw err;
       }
+    },
+    async startRecording(room, filepath, storage) {
+      const output = new EncodedFileOutput({
+        fileType: EncodedFileType.MP4,
+        filepath,
+        output: {
+          case: "s3",
+          value: new S3Upload({
+            accessKey: storage.accessKeyId,
+            secret: storage.secretAccessKey,
+            region: storage.region,
+            endpoint: storage.endpoint,
+            bucket: storage.bucket,
+            forcePathStyle: true,
+          }),
+        },
+      });
+      const info = await egress.startRoomCompositeEgress(room, { file: output }, { layout: "speaker" });
+      return info.egressId;
+    },
+    async stopEgress(egressId) {
+      try {
+        await egress.stopEgress(egressId);
+      } catch (err) {
+        // Already stopped or finished on its own.
+        if (!/not found|cannot be stopped|EGRESS_(COMPLETE|FAILED|ENDING)/i.test(String(err))) throw err;
+      }
+    },
+    async getEgress(egressId) {
+      const [info] = await egress.listEgress({ egressId });
+      return info ? egressInfoToResult(info) : { status: "failed", error: "Recording not found" };
     },
   };
 }

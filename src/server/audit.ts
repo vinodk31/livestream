@@ -23,7 +23,17 @@ export type AuditAction =
   | "stream.thumbnail_set"
   | "stream.thumbnail_removed"
   | "stream.live"
-  | "stream.ended";
+  | "stream.ended"
+  | "recording.deleted"
+  | "admin.user_disabled"
+  | "admin.user_enabled"
+  | "admin.user_verified"
+  | "admin.user_deleted"
+  | "admin.stream_disabled"
+  | "admin.stream_enabled"
+  | "admin.report_dismissed"
+  | "admin.report_actioned"
+  | "report.created";
 
 export async function audit(entry: {
   action: AuditAction;

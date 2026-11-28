@@ -16,6 +16,7 @@ import {
 } from "../livekit";
 import type { RequestMeta } from "../request";
 import { getDashboardStats } from "./queries";
+import { startSessionRecording, stopSessionRecording } from "./recording-service";
 import { getStreamForHost } from "./service";
 
 /** The studio pings every 15s; after this long without one we assume the host is gone. */
@@ -124,6 +125,7 @@ export async function startBroadcast(
     await lk.ensureRoom(room, { maxParticipants: plan.maxConcurrentViewers + 3 });
     [session] = await db.insert(streamSessions).values({ streamId: stream.id, livekitRoom: room, source }).returning();
     await db.update(streams).set({ status: "live", lastLiveAt: new Date() }).where(eq(streams.id, stream.id));
+    if (stream.recordingEnabled) await startSessionRecording(stream.id, session!.id, room);
     await audit({ action: "stream.live", actorId: hostId, targetType: "stream", targetId: stream.id, metadata: { source }, ip: meta.ip });
   }
 
@@ -205,6 +207,7 @@ export async function endBroadcast(
       .update(streamSessions)
       .set({ endedAt, viewerSeconds: Math.round(seconds) })
       .where(and(eq(streamSessions.id, session.id), isNull(streamSessions.endedAt)));
+    await stopSessionRecording(session);
     try {
       await getLiveKit().deleteRoom(session.livekitRoom);
     } catch (err) {

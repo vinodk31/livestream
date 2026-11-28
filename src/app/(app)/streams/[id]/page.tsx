@@ -15,6 +15,9 @@ import { requireUser } from "@/server/auth/session";
 import { StreamError, getStreamForHost } from "@/server/streams/service";
 import { qrSvg, watchUrl } from "@/server/streams/share";
 import { getStreamStats } from "@/server/streams/queries";
+import { listRecordings } from "@/server/streams/recording-service";
+import { isRecordingConfigured } from "@/server/recordings";
+import { RecordingsList } from "@/components/streams/recordings-list";
 import { updateStreamAction } from "../actions";
 
 export const metadata: Metadata = { title: "Stream" };
@@ -28,7 +31,11 @@ export default async function StreamDetailsPage({ params, searchParams }: PagePr
   });
 
   const url = watchUrl(stream.slug);
-  const [svg, stats] = await Promise.all([qrSvg(url), getStreamStats(stream.id)]);
+  const [svg, stats, recordings] = await Promise.all([
+    qrSvg(url),
+    getStreamStats(stream.id),
+    isRecordingConfigured() ? listRecordings(stream.id) : Promise.resolve([]),
+  ]);
   const now = new Date();
 
   return (
@@ -111,6 +118,21 @@ export default async function StreamDetailsPage({ params, searchParams }: PagePr
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recordings</CardTitle>
+              <CardDescription>The latest replay plays automatically on the viewer link after a broadcast ends.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecordingsList
+                streamId={stream.id}
+                rows={recordings}
+                configured={isRecordingConfigured()}
+                recordingEnabled={stream.recordingEnabled}
+              />
             </CardContent>
           </Card>
 

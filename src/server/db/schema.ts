@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   index,
   inet,
@@ -35,6 +36,7 @@ export const recordingStatus = pgEnum("recording_status", [
   "processing",
   "ready",
   "failed",
+  "deleted",
 ]);
 export const deviceType = pgEnum("device_type", ["desktop", "mobile", "tablet", "other"]);
 export const reportReason = pgEnum("report_reason", [
@@ -176,9 +178,12 @@ export const streamSessions = pgTable(
     viewerSeconds: integer("viewer_seconds").notNull().default(0),
     egressId: varchar("egress_id", { length: 64 }),
     recordingStatus: recordingStatus("recording_status").notNull().default("none"),
+    /** Object key in the recordings bucket (not a public URL; replays use short-lived signed links). */
     recordingUrl: text("recording_url"),
     recordingDurationSec: integer("recording_duration_sec"),
-    recordingSizeBytes: integer("recording_size_bytes"),
+    recordingSizeBytes: bigint("recording_size_bytes", { mode: "number" }),
+    /** When the plan's retention ends and the file is deleted. */
+    recordingExpiresAt: timestamp("recording_expires_at", { withTimezone: true }),
   },
   (t) => [
     index("stream_sessions_stream_idx").on(t.streamId, t.startedAt),
